@@ -104,11 +104,30 @@ function apiCheckKey(clientKey) {
 		return false;
 	}
 }
+// - Authorization
+// apiCheckKey: Checks to see if the client specified key matches.
+function apiCheckRegistrationKey(clientKey) {
+	if(clientKey === configuration.Auth.registrationKey) {
+		return true;
+	} else {
+		return false;
+	}
+}
 
 function apiIsKeyFromRequestIsBad(req) {
 	if(typeof req.body.serverKey === "undefined" || !apiCheckKey(req.body.serverKey))
 	{
 		loggerInstance.warn(`${req.ip} used a wrong key: ${req.body.serverKey}`);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+function registrationApiKeyFromRequestIsBad(req) {
+	if(typeof req.body.serverKey === "undefined" || !apiCheckRegistrationKey(req.body.registrationKey))
+	{
+		loggerInstance.warn(`Request from ${req.ip} denied: used a wrong server-registration key: ${req.body.registrationKey}`);
 		return true;
 	} else {
 		return false;
@@ -206,6 +225,12 @@ function apiAddToServerList(req, res) {
 	if(translateConfigOptionToBool(configuration.Auth.useAccessControl) && !allowedServerAddresses.includes(req.ip)) {
 		// Not allowed.
 		loggerInstance.warn(`Request from ${req.ip} denied: Not in ACL.`);
+		return res.sendStatus(403);
+	}
+
+	// Are we using a registration key? If so, are they allowed to do this?
+	if(translateConfigOptionToBool(configuration.Auth.useRegistrationKey) && registrationApiKeyFromRequestIsBad(req)) {
+		// Not allowed.
 		return res.sendStatus(403);
 	}
 
