@@ -104,30 +104,11 @@ function apiCheckKey(clientKey) {
 		return false;
 	}
 }
-// - Authorization
-// apiCheckKey: Checks to see if the client specified key matches.
-function apiCheckRegistrationKey(clientKey) {
-	if(clientKey === configuration.Auth.registrationKey) {
-		return true;
-	} else {
-		return false;
-	}
-}
 
 function apiIsKeyFromRequestIsBad(req) {
 	if(typeof req.body.serverKey === "undefined" || !apiCheckKey(req.body.serverKey))
 	{
 		loggerInstance.warn(`${req.ip} used a wrong key: ${req.body.serverKey}`);
-		return true;
-	} else {
-		return false;
-	}
-}
-
-function registrationApiKeyFromRequestIsBad(req) {
-	if(typeof req.body.serverKey === "undefined" || !apiCheckRegistrationKey(req.body.registrationKey))
-	{
-		loggerInstance.warn(`Request from ${req.ip} denied: used a wrong server-registration key: ${req.body.registrationKey}`);
 		return true;
 	} else {
 		return false;
@@ -229,8 +210,9 @@ function apiAddToServerList(req, res) {
 	}
 
 	// Are we using a registration key? If so, are they allowed to do this?
-	if(translateConfigOptionToBool(configuration.Auth.useRegistrationKey) && registrationApiKeyFromRequestIsBad(req)) {
+	if(translateConfigOptionToBool(configuration.Auth.useRegistrationKey) && req.body.registrationKey != configuration.Auth.registrationKey) {
 		// Not allowed.
+		loggerInstance.warn(`Add server request blocked from ${req.ip}. They used the wrong registration key ${req.body.registrationKey}.`);
 		return res.sendStatus(403);
 	}
 
@@ -318,6 +300,13 @@ function apiRemoveFromServerList(req, res) {
 		return res.sendStatus(403);
 	}
 
+	// Are we using a registration key? If so, are they allowed to do this?
+	if(translateConfigOptionToBool(configuration.Auth.useRegistrationKey) && req.body.registrationKey != configuration.Auth.registrationKey) {
+		// Not allowed.
+		loggerInstance.warn(`Remove server request blocked from ${req.ip}. They used the wrong registration key ${req.body.registrationKey}.`);
+		return res.sendStatus(403);
+	}
+
 	if(typeof req.body === "undefined") {
 		loggerInstance.warn(`Request from ${req.ip} denied: no POST data was provided.`);
 		return res.sendStatus(400);
@@ -351,6 +340,13 @@ function apiUpdateServerInList(req, res) {
 	if(translateConfigOptionToBool(configuration.Auth.useAccessControl) && !allowedServerAddresses.includes(req.ip)) {
 		// Not allowed.
 		loggerInstance.warn(`Update server request blocked from ${req.ip}. They are not known in our allowed IPs list.`);
+		return res.sendStatus(403);
+	}
+	
+	// Are we using a registration key? If so, are they allowed to do this?
+	if(translateConfigOptionToBool(configuration.Auth.useRegistrationKey) && req.body.registrationKey != configuration.Auth.registrationKey) {
+		// Not allowed.
+		loggerInstance.warn(`Update server request blocked from ${req.ip}. They used the wrong registration key ${req.body.registrationKey}.`);
 		return res.sendStatus(403);
 	}
 
@@ -436,4 +432,4 @@ expressApp.post("/update", apiUpdateServerInList);
 console.log("NodeListServer Gen2: Mirror List Server reimplemented in NodeJS");
 console.log("Report bugs and fork me on GitHub: https://github.com/SoftwareGuy/NodeListServer");
 
-expressApp.listen(configuration.Core.listenPort, () => console.log(`Listening on HTTP port ${configuration.Core.listenPort}!`));
+expressApp.listen(configuration.Core.listenPort,'0.0.0.0', () => console.log(`Listening on HTTP port ${configuration.Core.listenPort}!`));
